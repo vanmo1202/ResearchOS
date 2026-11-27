@@ -141,9 +141,14 @@ systemctl --user disable --now researchos-daily-commit.timer
 ## Xem CI và xử lý FAIL
 
 Mở GitHub → Actions → **ResearchOS automation CI/CD** → chọn run và job.
-Có thể bấm Run workflow trên `automation-ci-cd`. Không cần bật timer để chạy CI.
+Không cần bật timer để chạy CI. Vì workflow mới chỉ nằm trên nhánh phát triển,
+nút **Run workflow** có thể chưa xuất hiện trên UI (GitHub yêu cầu file trên
+default branch cho nút này). Sau lần push chạy đầu tiên, có thể dispatch qua CLI
+vào đúng nhánh, hoặc rerun một run đã có. Không cần sửa main. Xem
+[GitHub workflow_dispatch](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_dispatch).
 
 ```bash
+gh workflow run automation-ci-cd.yml --ref automation-ci-cd --repo vanmo1202/ResearchOS
 gh run list --repo vanmo1202/ResearchOS --workflow automation-ci-cd.yml --branch automation-ci-cd
 gh run view RUN_ID --repo vanmo1202/ResearchOS
 gh run view RUN_ID --repo vanmo1202/ResearchOS --log-failed
@@ -186,3 +191,15 @@ GitHub secret scanning; artifact access theo quyền GitHub của repository.
 Để tắt CI tự động: tắt workflow **ResearchOS automation CI/CD** trong Actions,
 hoặc chỉnh triggers qua commit được review; readiness trên main là workflow riêng.
 Tắt timer chỉ tắt commit local, không xóa commit hoặc ảnh hưởng push thủ công.
+
+## Kết quả xác minh 2026-11-28 (Asia/Ho_Chi_Minh)
+
+[Run 46039185377](https://github.com/vanmo1202/ResearchOS/actions/runs/46039185377)
+trên commit triển khai `42f5c08`: **SUCCESS**, cả năm job kể cả summary PASS.
+Backend Node 22/PostgreSQL 18: **222/222**, không skip/cancel; audit **0 vulnerabilities**.
+Frontend: **39 rebuild + 8 unified chat + 4 analytics PASS**, format/build PASS.
+Bốn Docker image build và placeholder Compose/preflight PASS trên runner GitHub.
+Automation **16/16** và operations **12/12** PASS cả local và CI.
+Local còn xác minh actionlint, shellcheck, Bash syntax, dry-run, systemd unit và
+calendar 20:30 +07. Timer chưa được cài/enable; không chạm container/database thật.
+Follow-up chỉ cập nhật tài liệu, dùng `[skip ci]` để không lặp regression.
