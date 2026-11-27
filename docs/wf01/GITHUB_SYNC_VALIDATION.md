@@ -52,12 +52,12 @@ Node host v24.21.0. Container test đã được stop sau regression; không sto
 | Regression cuối sau xử lý integration fixture | 221 PASS, 1 FAIL, 0 cancelled / 222 |
 | Baseline ca40736: content-security + flow-v2 cùng harness | 17 PASS, 1 FAIL / 18 |
 | Frontend build | PASS |
-| Baseline visual tests 375px/768px | Cùng timeout 20s như bản tích hợp |
+| Baseline visual tests | 0 PASS, 3 timeout / 3 (375px, 768px, 1440px); hai timeout bản tích hợp tái hiện trên baseline |
 | Frontend E2E mặc định | 37 PASS, 2 FAIL / 39; timeout 20s ở reference visuals 375px và 768px |
 
 Lỗi còn lại: `Collector pins validated DNS and cannot follow a rebinding answer to loopback` (content-security.test.js:50), expected connected [93.184.216.34], actual []. Cùng lỗi trên baseline ca40736 trong cùng môi trường; không phải lỗi mới từ cherry-pick. Không thay đổi collector/security implementation để ép xanh. Full regression không PASS toàn bộ.
 
-Các E2E progress/retry WF01 đều PASS. Hai visual tests timeout trong vòng lặp 12 routes; không có assertion layout thất bại được ghi nhận trước timeout. Đối chiếu baseline ca40736 với cùng dependencies/config 20s: cả 375px (20.2s) và 768px (20.3s) cũng timeout. Hai lỗi được tái hiện trên nhánh đích trước tích hợp; không tuyên bố E2E toàn bộ PASS.
+Các E2E progress/retry WF01 đều PASS. Hai visual tests timeout trong vòng lặp 12 routes; không có assertion layout thất bại được ghi nhận trước timeout. Đối chiếu baseline ca40736 với cùng dependencies/config 20s: cả 375px (20.2s) và 768px (20.3s) cũng timeout. Lượt baseline hoàn tất còn timeout cả 1440px; bản tích hợp đạt 1440px ở 19.6s. Hai lỗi bản tích hợp được tái hiện trên nhánh đích trước tích hợp; không tuyên bố E2E toàn bộ PASS.
 
 Lần E2E đầu gặp dependency symlink nằm ngoài Vite serving allowlist; lượt đó không dùng làm kết luận. Đã sao chép dependencies vào worktree, giữ executable symlinks nội bộ, chạy lại với config mặc định. Không đổi config hoặc timeout để ép PASS.
 
@@ -69,7 +69,14 @@ Trước push: tập thay đổi không có .env, secrets, keys/certificates, da
 
 Lịch sử chuẩn bị push chỉ gồm commit tích hợp và báo cáo validation, không kéo 32 commit recovery. origin/cap-nhat-wf1 phải là tổ tiên của HEAD; remote và main được đối chiếu lại ngay trước/sau push. Không force push.
 
-Trạng thái push: chưa thực hiện; kết quả xác minh sau push sẽ bổ sung dưới đây.
+Push đã thực hiện thành công bằng `git push origin HEAD:refs/heads/cap-nhat-wf1`, không force.
+
+- SHA đích trước push: `ca4073690d3396430c4c5f3d6693edec0482219b`.
+- SHA đích sau push code + báo cáo đầu tiên: `eac99b6efb3aa5a1e829e7faaf68a132df4763b6`.
+- Fetch lại cap-nhat-wf1 và main: remote tip khớp HEAD, main vẫn `ca4073690d3396430c4c5f3d6693edec0482219b`.
+- Đối chiếu blob IDs cả 24 file tích hợp với origin/cap-nhat-wf1: đủ và giống hệt. Ba service mới, test pipeline và RunProgress đều có trên nhánh đã fetch.
+- Bản cập nhật kết quả đối chiếu này được commit/push tiếp dưới dạng docs-only; SHA tip cuối xem commit chứa file này trong lịch sử nhánh (không thể nhúng SHA của chính commit vào nội dung của nó). Sau đó kiểm tra lại tip và main.
+- Không push recovery, không tạo PR, không chạm VPS.
 
 ## GO / NO-GO
 
