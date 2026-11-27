@@ -23,10 +23,16 @@
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "marked": "^18.1.2",
+    "mathjax-full": "^3.2.1",
     "pdfjs-dist": "5.4.624",
     "pdfkit": "^0.20.2",
     "pg": "8.16.3",
-    "undici": "6.29.1"
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "sharp": "^0.35.5",
+    "undici": "6.29.1",
+    "unified": "^11.0.5"
   },
   "devDependencies": {
     "fflate": "^0.8.3",

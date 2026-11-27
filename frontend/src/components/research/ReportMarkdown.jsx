@@ -1,7 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { safeExternalUrl } from '../../utils/format';
+import RichContentRenderer from '../ui/RichContentRenderer';
 export default function ReportMarkdown({ children }) {
   const content = useRef(null),
     prefix = useId().replace(/:/g, ''),
@@ -30,23 +28,7 @@ export default function ReportMarkdown({ children }) {
         </details>
       )}
       <div ref={content} className="report-markdown-content">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            a: ({ children, href }) => {
-              const safe = safeExternalUrl(href);
-              return safe ? (
-                <a href={safe} target="_blank" rel="noopener noreferrer">
-                  {children}
-                </a>
-              ) : (
-                <span>{children}</span>
-              );
-            },
-          }}
-        >
-          {children}
-        </ReactMarkdown>
+        <RichContentRenderer>{children}</RichContentRenderer>
       </div>
     </>
   );

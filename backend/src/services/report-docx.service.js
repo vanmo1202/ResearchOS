@@ -7,6 +7,7 @@ const {
   Footer,
   Header,
   HeadingLevel,
+  ImageRun,
   Packer,
   PageBreak,
   PageNumber,
@@ -60,6 +61,14 @@ function plain(runs = []) {
 
 function styledRuns(runs = [], options = {}) {
   return runs.map((run) => {
+    if (run.math) {
+      const scale = Math.min(1, (options.maxWidth || CONTENT_WIDTH / 20) / run.math.width);
+      return new ImageRun({
+        type: 'png', data: run.math.buffer,
+        transformation: { width: run.math.width * scale * 96 / 72, height: run.math.height * scale * 96 / 72 },
+        altText: { title: 'Công thức toán học', description: run.math.source, name: 'LaTeX' },
+      });
+    }
     const url = safeUrl(run.url);
     const text = new TextRun({
       text: String(run.text ?? ''),
@@ -75,15 +84,16 @@ function styledRuns(runs = [], options = {}) {
 
 function bodyParagraph(block) {
   const list = Boolean(block.prefix);
+  const displayMath = block.runs?.length === 1 && block.runs[0].math?.display;
   const depth = Math.min(5, Math.max(1, Number(block.indent) || 1));
   return new Paragraph({
     children: styledRuns(
       [...(list ? [{ text: block.prefix }] : []), ...(block.runs || [])],
       { size: block.code ? 22 : BODY_SIZE, font: block.code ? 'Courier New' : FONT, italics: block.quote },
     ),
-    alignment: block.code || block.quote ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
+    alignment: displayMath ? AlignmentType.CENTER : block.code || block.quote ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
     spacing: { before: 0, after: 140, line: 360 },
-    indent: list
+    indent: displayMath ? {} : list
       ? { left: depth * 480, hanging: 260 }
       : block.quote
         ? { left: 700, right: 300 }
@@ -120,7 +130,7 @@ function wordTable(block) {
           new TableCell({
             children: [
               new Paragraph({
-                children: styledRuns(row[column] || [{ text: '' }], { size: 24, bold: index === 0 }),
+                children: styledRuns(row[column] || [{ text: '' }], { size: 24, bold: index === 0, maxWidth: CONTENT_WIDTH / columnCount / 20 - 18 }),
                 spacing: { before: 0, after: 0, line: 300 },
                 alignment: AlignmentType.LEFT,
               }),

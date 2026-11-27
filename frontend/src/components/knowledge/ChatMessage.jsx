@@ -1,5 +1,4 @@
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import RichContentRenderer from '../ui/RichContentRenderer';
 import CitationCard from './CitationCard';
 const stages = {
   planning: 'Đang hiểu câu hỏi và tạo truy vấn...',
@@ -16,18 +15,7 @@ export default function ChatMessage({ message, onRetry }) {
         {message.status === 'pending' ? (
           <p role="status">{stages[message.research?.stage] || 'Đang trả lời…'}</p>
         ) : (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ children, ...props }) => (
-                <a {...props} target="_blank" rel="noopener noreferrer">
-                  {children}
-                </a>
-              ),
-            }}
-          >
-            {message.content || 'Chưa thể trả lời.'}
-          </ReactMarkdown>
+          <RichContentRenderer>{message.content || 'Chưa thể trả lời.'}</RichContentRenderer>
         )}
       </div>
       {message.research?.mode === 'auto' && message.role === 'assistant' && (

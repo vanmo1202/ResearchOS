@@ -1,0 +1,190 @@
+.rich-content {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+.rich-content > div {
+  min-width: 0;
+}
+.rich-content :is(h1, h2, h3, h4, h5, h6) {
+  line-height: 1.4;
+  margin: 1.5em 0 0.6em;
+  font-weight: 650;
+  scroll-margin-top: 6rem;
+}
+.rich-content h1 {
+  font-size: 1.8em;
+}
+.rich-content h2 {
+  font-size: 1.5em;
+}
+.rich-content h3 {
+  font-size: 1.25em;
+}
+.rich-content h4 {
+  font-size: 1.1em;
+}
+.rich-content :is(h5, h6) {
+  font-size: 1em;
+}
+.rich-content p {
+  margin: 0 0 1em;
+}
+.rich-content :is(ul, ol) {
+  padding-left: 1.7em;
+  margin: 0.7em 0 1em;
+}
+.rich-content ul {
+  list-style: disc;
+}
+.rich-content ol {
+  list-style: decimal;
+}
+.rich-content li {
+  margin: 0.3em 0;
+}
+.rich-content li :is(ul, ol) {
+  margin: 0.3em 0;
+}
+.rich-content blockquote {
+  margin: 1em 0;
+  padding: 0.65em 1em;
+  border-left: 3px solid var(--sage-400, #8caa99);
+  background: var(--sage, #f0f5f1);
+}
+.rich-content blockquote > :last-child {
+  margin-bottom: 0;
+}
+.rich-content :not(pre) > code {
+  padding: 0.12em 0.35em;
+  border-radius: 4px;
+  background: #eef1ed;
+  font-size: 0.9em;
+}
+.rich-content pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 1em;
+  margin: 1em 0;
+  border-radius: 8px;
+  background: #182b25;
+  color: #edf4ef;
+  white-space: pre;
+  overflow-wrap: normal;
+  line-height: 1.65;
+  tab-size: 4;
+}
+.rich-content pre code {
+  font-size: 0.85em;
+  font-family: ui-monospace, monospace;
+}
+.rich-content .rich-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.rich-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+  margin: 0;
+}
+.rich-content :is(th, td) {
+  padding: 0.65em 0.85em;
+  border: 1px solid #cdd9d1;
+  min-width: 7rem;
+  vertical-align: top;
+  overflow-wrap: normal;
+}
+.rich-content th {
+  background: var(--sage, #f0f5f1);
+  font-weight: 650;
+}
+.rich-content a {
+  color: var(--forest-700, #25614a);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rich-content .katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.65em 0;
+  margin: 0.75em 0;
+}
+.rich-content .katex {
+  font-size: 1.1em;
+  overflow-wrap: normal;
+}
+.rich-content .katex-error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rich-content .rich-source-tools {
+  margin-top: 0.5em;
+  font-size: 0.75rem;
+}
+.rich-source-tools button {
+  color: var(--muted-ink, #56665c);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.rich-source-tools label {
+  display: block;
+  margin-top: 0.5em;
+}
+.rich-source-tools textarea {
+  width: 100%;
+  min-height: 6em;
+  font-family: ui-monospace, monospace;
+}
+/* The existing chat label rule also targeted Markdown bold, causing broken paragraphs. */
+.chat-message .rich-content strong {
+  display: inline;
+  font-size: inherit;
+  color: inherit;
+  margin: 0;
+}
+:is(.chat-panel, .chat-messages, .chat-message, .chat-content, .report-markdown-content) {
+  min-width: 0;
+}
+.chat-message {
+  width: fit-content;
+}
+.chat-content {
+  max-width: 100%;
+}
+.report-document .rich-content :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1.5em;
+}
+@media (max-width: 600px) {
+  .rich-content {
+    font-size: 0.875rem;
+    line-height: 1.75;
+  }
+  .chat-message {
+    max-width: 100%;
+  }
+}
+.rich-content .rich-table-scroll > table {
+  display: table;
+  max-width: none;
+  overflow: visible;
+}
+.rich-content .katex {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: middle;
+  padding: 0.12em 0;
+}
+.rich-content .katex-display > .katex {
+  min-width: 100%;
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+}

@@ -1,5 +1,5 @@
-const path = require('node:path');
-const PDFDocument = require('pdfkit');
+const { renderPdf: pdf } = require('./report-pdf.service');
+const { parseMathMarkdown } = require('./report-math.service');
 const { renderDocx: docx } = require('./report-docx.service');
 const reportService = require('./report.service');
 const requests = require('../models/request.model');
@@ -67,34 +67,8 @@ async function loadExport(requestId) {
         return !referenceDepth;
     });
     const created = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(report.createdAt.replace(' ', 'T') + (/[zZ]|[+]\d{2}:\d{2}$/.test(report.createdAt) ? '' : 'Z')));
-    return { report, request, references, body: blocks(body), created,
+    return { report, request, references, body: await parseMathMarkdown(body.map(token => token.raw).join('')), created,
         filename: `Bao_cao_nghien_cuu_${requestId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 8)}` };
-}
-function pdf(data) {
-    return new Promise((resolve, reject) => {
-        const document = new PDFDocument({ size: 'A4', margins: { top: 56, bottom: 56, left: 64, right: 56 }, info: { Title: data.report.title, Author: 'AI Research Agent' } });
-        const chunks = [];
-        document.on('data', chunk => chunks.push(chunk)); document.on('end', () => resolve(Buffer.concat(chunks))); document.on('error', reject);
-        const fonts = path.join(__dirname, '../../assets/fonts');
-        for (const [name, file] of [['regular', 'Regular'], ['bold', 'Bold'], ['italic', 'Italic'], ['bolditalic', 'BoldItalic']]) document.registerFont(name, path.join(fonts, `LiberationSerif-${file}.ttf`));
-        function paragraph(runs, { size = 12, indent = 0, heading = false } = {}) {
-            if (document.y + (heading ? 70 : 30) > document.page.height - 56) document.addPage();
-            runs.forEach((run, index) => {
-                document.font(heading || run.bold ? (run.italics ? 'bolditalic' : 'bold') : run.italics ? 'italic' : 'regular').fontSize(size).fillColor(run.url ? '#174b85' : '#17202a');
-                document.text(run.text, { continued: index < runs.length - 1, lineGap: 4, indent,
-                    ...(run.url ? { link: run.url, underline: true } : {}) });
-            });
-            document.moveDown(0.6);
-        }
-        try {
-            paragraph([{ text: data.report.title }], { size: 20, heading: true });
-            paragraph([{ text: `Chủ đề: ${data.request.topic}` }]); paragraph([{ text: `Ngày tạo: ${data.created}` }]);
-            for (const block of data.body) paragraph([...(block.prefix ? [{ text: block.prefix }] : []), ...block.runs], { size: block.level ? Math.max(13, 19 - block.level) : 12, heading: Boolean(block.level), indent: block.indent || block.quote ? 18 * (block.indent || 1) : 0 });
-            paragraph([{ text: 'Tài liệu tham khảo' }], { size: 17, heading: true });
-            for (const ref of data.references) paragraph([{ text: `${ref.citationLabel} ${ref.title} — ` }, { text: ref.url, url: safeUrl(ref.url) }]);
-            document.end();
-        } catch (error) { document.destroy(error); }
-    });
 }
 async function exportReport(id, format) {
     const data = await loadExport(id);

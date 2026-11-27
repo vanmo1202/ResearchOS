@@ -9,20 +9,18 @@ exports.exportReport = async (id, format) => {
   const run = await db.get("SELECT * FROM research_runs WHERE id=$1", [
     report.run_id,
   ]);
-  const input = JSON.parse(run.input_snapshot_json),
-    { lexer } = await import("marked");
+  const input = JSON.parse(run.input_snapshot_json);
+  const { parseMathMarkdown } = require("./report-math.service");
   const references = JSON.parse(report.references_json);
   const data = {
     report: { ...report, title: input.topic },
     request: input,
     references,
     created: report.created_at,
-    body: renderer.blocks(
-      lexer(
+    body: await parseMathMarkdown(
         report.content.split(
           /^## (?:Tài liệu tham khảo|References)[ \t]*\r?$/m,
         )[0],
-      ),
     ),
   };
   return {
