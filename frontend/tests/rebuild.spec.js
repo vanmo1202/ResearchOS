@@ -610,3 +610,76 @@ test('WF01 quality gaps and old mock sources never display verified citations', 
   );
   await expect(page.getByText(/Hãy kiểm tra kết quả xác minh trích dẫn/)).toBeVisible();
 });
+
+test('terminal partial is visibly stopped and exhausted retry cannot submit', async ({ page }) => {
+  await mock(page);
+  await page.route('**/progress', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          requestId,
+          runId,
+          status: 'partial',
+          currentStage: 'verifying',
+          completedStages: [
+            'planning',
+            'collecting',
+            'analyzing',
+            'evaluating',
+            'composing',
+            'verifying',
+          ],
+          percent: 100,
+          sourceCount: 7,
+          evidenceCount: 3,
+          recentEvents: [],
+          retry: { allowed: false, stage: null, reason: 'Ngân sách run đã hết.' },
+          lastError: { code: 'REPORT_QUESTION_COVERAGE_GAP', message: 'Evidence gap' },
+        },
+      },
+    }),
+  );
+  await page.goto(`/research/${requestId}/runs/${runId}`);
+  await expect(page.getByText('Đã dừng — hoàn thành một phần', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Thử lại giai đoạn lỗi' })).toBeDisabled();
+  await expect(page.getByText('Ngân sách run đã hết.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hủy nghiên cứu' })).toHaveCount(0);
+});
+
+test('partial retry explains the server-selected recovery stage', async ({ page }) => {
+  await mock(page);
+  await page.route('**/progress', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: {
+          requestId,
+          runId,
+          status: 'partial',
+          currentStage: 'verifying',
+          completedStages: [
+            'planning',
+            'collecting',
+            'analyzing',
+            'evaluating',
+            'composing',
+            'verifying',
+          ],
+          percent: 100,
+          sourceCount: 7,
+          evidenceCount: 3,
+          recentEvents: [],
+          retry: {
+            allowed: true,
+            stage: 'collecting',
+            reason: 'Chạy lại từ collecting; giữ nguồn, bằng chứng và bộ đếm ngân sách.',
+          },
+        },
+      },
+    }),
+  );
+  await page.goto(`/research/${requestId}/runs/${runId}`);
+  await expect(page.getByRole('button', { name: 'Thử lại từ Thu thập nguồn' })).toBeEnabled();
+  await expect(page.getByText(/giữ nguồn, bằng chứng và bộ đếm ngân sách/)).toBeVisible();
+});

@@ -1,0 +1,7 @@
+# Local WF01 image; keep shared image tags and the serving frontend intact.
+# Run from the repository root with docker-compose.yml as the first file.
+services:
+  backend:
+    image: researchos-local-recovery:20261126-wf01
+  worker:
+    image: researchos-local-recovery:20261126-wf01

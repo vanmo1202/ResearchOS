@@ -1,3 +1,4 @@
+const { budgetFor } = require("../services/research-budget.service");
 module.exports = async (ctx) => {
   const evidence = ctx.analysis ? JSON.parse(ctx.analysis.evidence_json) : [];
   const gaps = ctx.plan.researchQuestions
@@ -22,8 +23,8 @@ module.exports = async (ctx) => {
     ctx.input.searchMore &&
     ctx.run.current_round < 2 &&
     ctx.sources.length < ctx.input.numberOfSources &&
-    ctx.run.search_calls < 3 &&
-    ctx.run.llm_calls < 12;
+    ctx.run.search_calls < budgetFor(ctx.input).searchCalls &&
+    ctx.run.llm_calls < budgetFor(ctx.input).llmCalls - 8;
   return require("../validators/evaluation.validator").validate({
     coverage,
     action:

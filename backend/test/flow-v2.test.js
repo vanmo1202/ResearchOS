@@ -100,7 +100,7 @@ const real = {
         researchQuestion: q.question,
         chunkId: chunk.id,
         sourceVersionId: chunk.source_version_id,
-        originalQuote: fixtureQuote,
+        originalQuote: fixtureContent.match(/[^.]+\./g)[index % 3].trim(),
         evidenceText: fixtureQuote,
         relevanceScore: 0.8,
         reason: "Direct quote",
@@ -111,7 +111,7 @@ const real = {
   }),
 
   json: async (_ctx, prompt, input) => {
-    if (prompt.includes("Compose faithful research claims")) {
+    if (prompt.includes("Write a detailed research section")) {
       return {
         claims: input.evidence.map(e => ({
           evidenceId: e.evidenceId,
@@ -120,9 +120,10 @@ const real = {
       };
     }
 
-    if (prompt.includes("Check each report claim")) {
+    if (prompt.includes("Check EACH report paragraph")) {
       return {
         verdicts: input.claims.map(c => ({
+          claimId: c.claimId,
           evidenceId: c.evidenceId,
           status: "verified",
           reason: "Supported by the exact fixture quote"
@@ -502,7 +503,7 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
   );
 
   await t.test(
-    "provider errors fail fast; cancellation fences in-flight writes",
+    "transient provider errors retry within limits; cancellation fences in-flight writes",
     async () => {
       const r = await create();
 
@@ -519,7 +520,17 @@ test("Flow v2 migration, pipeline, HTTP, isolation and concurrency", async (t) =
         [r.id]
       );
 
+      assert.equal(job.status, "retry_waiting");
+      assert.equal((await service.requireRun(r.id)).status, "running");
+      for (let attempt = 1; attempt < job.max_attempts; attempt++) {
+        await db.run("UPDATE stage_jobs SET available_at=NOW() WHERE id=$1", [job.id]);
+        await runner.runOnce({ handlers: { planning: async () => {
+          throw provider.fail("PROVIDER_UNAVAILABLE", true);
+        } } });
+      }
+      job = await db.get("SELECT * FROM stage_jobs WHERE id=$1", [job.id]);
       assert.equal(job.status, "failed");
+      assert.equal(job.attempts, job.max_attempts);
       assert.equal(
         JSON.parse(job.error_json).code,
         "PROVIDER_UNAVAILABLE"

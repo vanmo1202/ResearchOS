@@ -181,7 +181,7 @@ test('Flow v2 rejects all off-topic Tavily results, persists zero sources and te
     assert.equal(progress.status, 'partial');
     assert.equal(progress.sourceCount, 0);
     assert.equal(progress.evidenceCount, 0);
-    assert.ok(calls > 0 && calls <= 3, `Unexpected search expansion: ${calls}`);
+    assert.ok(calls > 0 && calls <= require('../src/services/research-budget.service').budgetFor(JSON.parse(run.input_snapshot_json)).searchCalls, `Unexpected search expansion: ${calls}`);
     assert.equal((await db.get('SELECT llm_calls FROM research_runs WHERE id=$1', [run.id])).llm_calls, 0);
     const jobs = await db.all("SELECT output_json FROM stage_jobs WHERE run_id=$1 AND stage='collecting'", [run.id]);
     assert.ok(jobs.length >= 1 && jobs.length <= 3,
@@ -337,7 +337,8 @@ test('V2 extraction excludes bad sources before Gemini and rejects off-topic quo
     t.mock.method(global, 'fetch', async (url, options) => {
         assert.match(url, /^https:\/\/generativelanguage\.googleapis\.com\//);
         calls++;
-        const chunks = JSON.parse(JSON.parse(options.body).messages[1].content).chunks;
+        const payload = JSON.parse(JSON.parse(options.body).messages[1].content);
+        const chunks = payload.questions.flatMap(q => q.chunks);
         assert.ok(chunks.every(c => c.sourceVersionId === 'good'));
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ evidence: [{
             questionId: 'Q1', chunkId: 'good-chunk',
