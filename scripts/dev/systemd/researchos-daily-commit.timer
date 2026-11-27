@@ -1,0 +1,11 @@
+[Unit]
+Description=ResearchOS daily local commit at 20:30 Vietnam time
+
+[Timer]
+OnCalendar=*-*-* 20:30:00 Asia/Ho_Chi_Minh
+Persistent=true
+AccuracySec=1min
+Unit=researchos-daily-commit.service
+
+[Install]
+WantedBy=timers.target

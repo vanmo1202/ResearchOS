@@ -1,0 +1,17 @@
+name: ResearchOS automation CI/CD
+on:
+  push:
+    branches: [automation-ci-cd]
+  pull_request:
+    branches: [automation-ci-cd]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: automation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  readiness:
+    uses: ./.github/workflows/production-readiness.yml
+    permissions:
+      contents: read

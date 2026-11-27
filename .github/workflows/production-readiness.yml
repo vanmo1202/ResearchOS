@@ -5,13 +5,18 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
-  group: readiness-${{ github.ref }}
+  group: readiness-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
 jobs:
   backend:
+    name: Backend CI
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -31,90 +36,166 @@ jobs:
       PGUSER: researchos
       PGDATABASE: researchos_test_ci
       RESEARCH_LOAD_ENV: 'false'
+      MOCK_LLM: 'true'
+      MOCK_SEARCH: 'true'
+      GEMINI_API_KEY: fake-ci-never-live
+      TAVILY_API_KEY: fake-ci-never-live
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - run: npm ci 2>&1 | tee backend-install.log
         working-directory: backend
-      - run: npm test
+      - name: Full backend tests (per-file schema isolation)
+        env:
+          NODE_OPTIONS: --require ${{ github.workspace }}/scripts/ci/offline-providers.cjs
+        run: npm test 2>&1 | tee backend-tests.log
         working-directory: backend
-      - run: npm audit --omit=dev
+      - run: npm audit --omit=dev 2>&1 | tee backend-audit.log
         working-directory: backend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: backend-failure-logs
+          path: backend/backend-*.log
+          retention-days: 7
   frontend:
+    name: Frontend CI
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      RESEARCH_LOAD_ENV: 'false'
+      MOCK_LLM: 'true'
+      MOCK_SEARCH: 'true'
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci 2>&1 | tee backend-install.log
         working-directory: backend
-      - run: npm ci
+      - run: npm ci 2>&1 | tee frontend-install.log
         working-directory: frontend
-      - run: npm run format:check
+      - run: npm run format:check 2>&1 | tee frontend-format.log
         working-directory: frontend
-      - run: npm run build
+      - run: npm run build 2>&1 | tee frontend-build.log
         working-directory: frontend
-      - run: npx playwright install --with-deps chrome
+      - id: browser
+        run: npx playwright install --with-deps chrome 2>&1 | tee frontend-browser.log
         working-directory: frontend
-      - run: npm run test:rebuild
+      - name: Complete WF01 rebuild suite (all responsive tests)
+        run: npm run test:rebuild -- --reporter=list,html --output=test-results/rebuild 2>&1 | tee frontend-rebuild.log
         working-directory: frontend
-      - run: npx playwright test -c playwright.unified.config.js
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/rebuild
+      - name: Complete unified chat suite
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
+        run: npx playwright test -c playwright.unified.config.js --reporter=list,html --output=test-results/unified 2>&1 | tee frontend-unified.log
         working-directory: frontend
-      - run: npx playwright test -c playwright.analytics.config.js
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/unified
+      - name: Complete analytics suite
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
+        run: npx playwright test -c playwright.analytics.config.js --reporter=list,html --output=test-results/analytics 2>&1 | tee frontend-analytics.log
         working-directory: frontend
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/analytics
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: frontend-test-results
-          path: frontend/test-results
+          name: frontend-failure-logs-and-reports
+          path: |
+            backend/backend-install.log
+            frontend/frontend-*.log
+            frontend/test-results
+            frontend/playwright-report
           retention-days: 7
   compose:
+    name: Docker build and Compose validation
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Validate config with isolated placeholder environment
-        env:
-          INTERNAL_API_KEY: ci-placeholder-not-for-production
+        with:
+          persist-credentials: false
+      - name: Validate Compose and worker image with isolated placeholders
+        run: python3 scripts/ci/validate-compose.py 2>&1 | tee compose-validation.log
+      - uses: docker/setup-buildx-action@v3
+      - name: Build actual local backend and frontend contexts
         run: |
-          touch backend/.env
-          mkdir -p deploy/secrets
-          printf '%s' 'ci-fake-secret-not-for-production' > deploy/secrets/postgres_password
-          docker compose -p ai-research-agent config --quiet
-          docker compose -p ai-research-agent -f docker-compose.yml -f docker-compose.validation.yml config --quiet
+          docker buildx build --progress=plain --load --tag researchos-ci/backend:local --file backend/Dockerfile backend 2>&1 | tee docker-backend.log
+          docker buildx build --progress=plain --load --tag researchos-ci/frontend:local --file frontend/Dockerfile --build-arg VITE_API_BASE_URL= frontend 2>&1 | tee docker-frontend.log
+      - name: Build hardened backend and frontend Dockerfiles
+        run: |
+          docker buildx build --progress=plain --load --tag researchos-ci/backend:hardened --file deploy/Dockerfile.backend backend 2>&1 | tee docker-hardened-backend.log
+          docker buildx build --progress=plain --load --tag researchos-ci/frontend:hardened --file deploy/Dockerfile.frontend frontend 2>&1 | tee docker-hardened-frontend.log
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docker-failure-logs
+          path: |
+            compose-validation.log
+            docker-*.log
+          retention-days: 7
   operations:
+    name: Automation and operations safety
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: gpg --version
-      - run: python3 -m unittest discover -s scripts/ops -p 'test_*.py' -v
-      - name: Validate hardened staging topology (placeholder digests, no image execution)
-        env:
-          COMPOSE_PROJECT_NAME: ci-hardening
-          FRONTEND_ORIGIN: https://ci.example.invalid
-          INTERNAL_RESEARCH_USER_ID: ci-service-user
-          BACKEND_IMAGE: backend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          FRONTEND_IMAGE: frontend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          EDGE_IMAGE: nginx@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          POSTGRES_IMAGE: postgres@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          N8N_IMAGE: n8n@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          TLS_DIRECTORY: /tmp/ci-hardening/tls
-          SECRETS_DIRECTORY: /tmp/ci-hardening/secrets
+      - name: Local automation behavior in disposable Git repositories
+        run: python3 -m unittest discover -s scripts/dev/tests -v 2>&1 | tee automation-tests.log
+      - run: python3 -m unittest discover -s scripts/ops -p 'test_*.py' -v 2>&1 | tee operations-tests.log
+      - name: Shell syntax and Vietnam calendar
         run: |
-          mkdir -p /tmp/ci-hardening/tls /tmp/ci-hardening/secrets
-          for name in internal_api_key gemini_api_key tavily_api_key n8n_encryption_key postgres_password; do
-            printf '%s' 'ci-fake-secret-not-for-production' > "/tmp/ci-hardening/secrets/$name"
+          bash -n scripts/dev/daily-commit.sh scripts/dev/safe-push.sh scripts/dev/git-guard.sh
+          systemd-analyze calendar '*-*-* 20:30:00 Asia/Ho_Chi_Minh'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: automation-failure-logs
+          path: |
+            automation-tests.log
+            operations-tests.log
+          retention-days: 7
+  summary:
+    name: Required validation summary
+    if: always()
+    needs: [backend, frontend, compose, operations]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BACKEND_RESULT: ${{ needs.backend.result }}
+      FRONTEND_RESULT: ${{ needs.frontend.result }}
+      DOCKER_RESULT: ${{ needs.compose.result }}
+      OPERATIONS_RESULT: ${{ needs.operations.result }}
+    steps:
+      - name: Report and reject any unsuccessful required job
+        run: |
+          printf '## ResearchOS validation\n\n| Job | Result |\n| --- | --- |\n' >> "$GITHUB_STEP_SUMMARY"
+          failed=0
+          for name in BACKEND FRONTEND DOCKER OPERATIONS; do
+            variable="${name}_RESULT"
+            result=${!variable}
+            printf '| %s | %s |\n' "$name" "$result" >> "$GITHUB_STEP_SUMMARY"
+            [[ "$result" == success ]] || failed=1
           done
-          docker compose -p ai-research-agent -f compose.production.yml -f compose.staging.yml config --quiet
-          docker compose -p ai-research-agent -f compose.production.yml -f compose.staging.yml config --format json | python3 scripts/ops/preflight.py
+          printf '\nImages are built only. No registry publication or VPS deployment.\n' >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"

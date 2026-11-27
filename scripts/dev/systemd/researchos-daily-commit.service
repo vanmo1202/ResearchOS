@@ -1,0 +1,14 @@
+[Unit]
+Description=ResearchOS guarded local daily commit (no push)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/vanmo/projects/ResearchOS
+ExecStart=/usr/bin/bash /home/vanmo/projects/ResearchOS/scripts/dev/daily-commit.sh
+Environment=TZ=Asia/Ho_Chi_Minh
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+UMask=0077
+TimeoutStartSec=5min
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
