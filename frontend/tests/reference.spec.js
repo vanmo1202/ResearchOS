@@ -169,6 +169,9 @@ test('automation never claims n8n connected or runs a private webhook', async ({
 });
 for (const width of [375, 768, 1440])
   test(`reference visuals fit ${width}px`, async ({ page }) => {
+    // Twelve full navigations plus rendering/screenshots take about 19s before setup.
+    // Give this multi-route check headroom; individual tests keep the 20s default.
+    test.setTimeout(30_000);
     await page.setViewportSize({ width, height: 1000 });
     const { errors } = await fixture(page);
     for (const path of [
