@@ -98,8 +98,10 @@ async function context(job, signal, customProvider) {
     "SELECT output_json FROM stage_jobs WHERE run_id=$1 AND stage='evaluating' AND status='succeeded' ORDER BY legacy_position DESC LIMIT 1",
     [run.id],
   );
+  const composition = await db.get("SELECT output_json FROM stage_jobs WHERE run_id=$1 AND stage='composing' AND status='succeeded' ORDER BY legacy_position DESC LIMIT 1", [run.id]);
   const ctx = {
     job,
+    compositionPartial: composition ? JSON.parse(composition.output_json).partial === true : false,
     run,
     input,
     signal,
@@ -289,13 +291,13 @@ async function commit(job, owner, ctx, output) {
 async function reject(job, owner, error) {
   return db.transaction(async (tx) => {
     if (!(await owns(tx, job, owner))) return;
-    const retry = error.retryable === true && !/^(PROVIDER_|SEARCH_|BUDGET_|MOCK_)/.test(error.code || '') && job.attempts < job.max_attempts;
+    const retry = error.retryable === true && !/^(PROVIDER_AUTH|PROVIDER_CONFIGURATION|BUDGET_|MOCK_|INVALID_)/.test(error.code || '') && job.attempts < job.max_attempts;
     const code = /^[A-Z_0-9]{1,64}$/.test(error.code || "")
       ? error.code
       : "STAGE_FAILED";
     const safe = {
       code,
-      message: `Stage ${job.stage} failed; check provider configuration or retry.`,
+      message: retry ? `Stage ${job.stage} encountered a temporary error; retry scheduled (attempt ${job.attempts}/${job.max_attempts}).` : `Stage ${job.stage} stopped (${code}); review the error before retrying.`,
     };
     await tx.run(
       "UPDATE stage_jobs SET status=$1,error_json=$2,available_at=$3,locked_by=NULL,locked_until=NULL,completed_at=$4 WHERE id=$5",

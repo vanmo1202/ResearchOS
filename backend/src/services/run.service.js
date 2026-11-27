@@ -1,3 +1,4 @@
+const {retryPolicy}=require('./research-retry.service');
 const db = require("../config/database");
 const model = require("../models/run.model");
 const requests = require("../models/request.model");
@@ -84,8 +85,9 @@ async function progress(requestId, id) {
           ["running", "queued", "retry_waiting"].includes(j.status),
         ),
       ),
+      retry: retryPolicy(run, {sourceCount:sources.count,coverage:analysis?.coverage_status}),
       percent:
-        run.status === "completed"
+        run.status === "completed" || (run.status === "partial" && completedStages.length === 6)
           ? 100
           : Math.min(99, Math.round((completedStages.length / 6) * 100)),
       sourceCount: sources.count,
@@ -153,7 +155,11 @@ async function retry(id, stage, idempotencyKey) {
       "SELECT * FROM stage_jobs WHERE run_id=$1 ORDER BY legacy_position DESC LIMIT 1",
       [id],
     );
-    stage = stage || last.stage;
+    const sourceCount = await tx.get("SELECT COUNT(*) count FROM source_versions WHERE run_id=$1", [id]);
+    const analysis = await model.latestAnalysis(id);
+    const policy = retryPolicy(run, {sourceCount:sourceCount.count,coverage:analysis?.coverage_status});
+    if (!policy.allowed) throw error(policy.reason, 409);
+    stage = stage || policy.stage || last.stage;
     if (!STAGES.includes(stage)) throw invalid("Invalid stage");
     const previousStage = STAGES[STAGES.indexOf(stage) - 1];
     if (
@@ -175,6 +181,7 @@ async function retry(id, stage, idempotencyKey) {
       "UPDATE research_runs SET status='queued',current_stage=$1,completed_at=NULL,error_code=NULL,error_message=NULL,updated_at=$2 WHERE id=$3",
       [stage, model.now(), id],
     );
+    await model.event(tx, id, stage, 'run.retry_requested', policy.reason, { previousError: run.error_code, stage, searchCalls: run.search_calls, llmCalls: run.llm_calls });
     return job;
   });
 }

@@ -1,16 +1,23 @@
 import { AlertTriangle, Check, Square } from 'lucide-react';
 import { stages } from '../../services/runApi';
-import { qualityLabel } from '../../utils/displayLabels';
+import { qualityLabel, stageLabel } from '../../utils/displayLabels';
 import Button from '../ui/Button';
 
 const incompleteQuality = ['insufficient', 'unavailable', 'conflicting', 'unverified'];
 
 export default function RunProgress({ progress, disabled, onAction }) {
+  const stopped = ['partial', 'failed', 'cancelled'].includes(progress.status);
   return (
     <section className="os-panel os-progress">
       <div className="os-between">
         <h2>{stages.find(([key]) => key === progress.currentStage)?.[2] || 'Tiến trình'}</h2>
-        <strong>{progress.percent}%</strong>
+        <strong>
+          {progress.status === 'partial'
+            ? 'Đã dừng — hoàn thành một phần'
+            : stopped
+              ? 'Đã dừng'
+              : `${progress.percent}%`}
+        </strong>
       </div>
       <progress aria-label="Tiến độ nghiên cứu" max={100} value={progress.percent} />
       <p className="os-muted">
@@ -61,12 +68,20 @@ export default function RunProgress({ progress, disabled, onAction }) {
             </Button>
           )}
           {['failed', 'partial'].includes(progress.status) && (
-            <Button disabled={disabled} onClick={() => onAction('retry')}>
-              Thử lại giai đoạn lỗi
+            <Button
+              disabled={disabled || progress.retry?.allowed === false}
+              onClick={() => onAction('retry')}
+            >
+              {progress.retry?.allowed && progress.retry.stage
+                ? `Thử lại từ ${stageLabel(progress.retry.stage)}`
+                : 'Thử lại giai đoạn lỗi'}
             </Button>
           )}
         </div>
       </div>
+      {progress.retry?.reason && ['failed', 'partial'].includes(progress.status) && (
+        <p className="os-notice">{progress.retry.reason}</p>
+      )}
       {progress.status === 'partial' && (
         <p className="os-notice">
           Nghiên cứu hoàn thành một phần. Hãy kiểm tra khoảng trống bằng chứng và xác minh báo cáo

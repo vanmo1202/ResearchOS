@@ -38,6 +38,10 @@ test("Collector pins validated DNS and cannot follow a rebinding answer to loopb
     });
     return socket;
   });
+  // Exercise the real dispatcher despite a preloaded global offline-fetch guard.
+  // net.connect above intercepts every socket: public IPs fail without egress,
+  // while an unsafe second DNS lookup can reach only our loopback sentinel.
+  t.mock.method(global, "fetch", require("undici").fetch);
   const content = require("../src/services/content.service");
   const text = await content.fetchPageContent(
     `http://audit-rebind.invalid:${server.address().port}/`,
