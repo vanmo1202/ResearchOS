@@ -2,6 +2,13 @@
 
 Ngày: 28/11/2026. Nhánh: `automation-ci-cd`.
 
+## Checkpoint khi nhận yêu cầu tiếp tục
+
+- Phần đã có: commit triển khai `fd32134f39a18f993b6199202841a57f40285daa` đã push lên remote; renderer chung, tích hợp chat/report/WF01, styling, chuẩn hóa delimiter và export DOCX/PDF đều đã hoàn thiện. Dependency đã cài và lockfile đã commit.
+- Commit tài liệu `79279c7` đã có local nhưng chưa push; working tree sạch, không có diff staged/unstaged hay thay đổi CI/CD đang dở. Nhánh vẫn là `automation-ci-cd`.
+- Đã sử dụng checkpoint của cùng phiên và đối chiếu log còn lưu: 14 targeted tests, 66 E2E, format check và build đều pass. Không có thay đổi production sau các kết quả này.
+- Phần hoàn thiện khi tiếp tục: bổ sung phân biệt tiến độ trước/sau checkpoint vào báo cáo, kiểm tra diff/secrets và push các commit tài liệu còn lại. Không triển khai lại renderer, không cài lại dependency, không chạy trùng các test đã pass. Các giới hạn export bên dưới vẫn được giữ nguyên và công khai.
+
 ## Nguyên nhân
 
 - Chat và report dùng hai cấu hình ReactMarkdown riêng, chỉ có GFM; chưa có remark-math/KaTeX nên LaTeX hiện thành ký tự.
